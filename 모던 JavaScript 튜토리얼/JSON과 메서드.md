@@ -272,3 +272,221 @@ number:       23
 첫 얼럿창에 예상치 못한 문자열(`":[object Object]"`)이 뜨는걸 볼 수 있는데, 이는 함수가 최초로 호출될 때 `{"": meetup}` 형태의 "래퍼 객체"가 만들어지기 때문입니다. `replacer`함수가 가장 처음으로 처리해야하는 `(key, value)` 쌍에서 키는 빈 문자열, 값은 변환하고자 하는 객체(meetup) 전체가 되는 것이죠.
 
 이렇게 `replacer` 함수를 사용하면 중첩 객체 등을 포함한 객체 전체에서 원하는 프로퍼티만 선택해 직렬화 할 수 있습니다.
+
+> **space로 가독성 높이기**
+
+`JSON.stringify(value, replacer, space)`의 세 번째 인수 `space`는 가독성을 높이기 위해 중간에 삽입해 줄 공백 문자 수를 나타냅니다.
+
+지금까진 `space` 없이 메서드를 호출했기 때문에 인코딩된 JSON에 들여쓰기나 여분의 공백문자가 하나도 없었습니다. `space`는 가독성을 높이기 위한 용도로 만들어졌기 때문에 단순 전달 목적이라면 `space` 없이 직렬화하는 편입니다.
+
+아래 예시처럼 `space`에 `2`를 넘겨주면 자바스크립트는 중첩 객체를 별도의 줄에 출력해주고 공백 문자 두 개를 써 들여쓰기해 줍니다.
+
+```jsx
+let user = {
+  name: "John",
+  age: 25,
+  roles: {
+    isAdmin: false,
+    isEditor: true
+  }
+};
+
+alert(JSON.stringify(user, null, 2));
+/* 공백 문자 두 개를 사용하여 들여쓰기함:
+{
+  "name": "John",
+  "age": 25,
+  "roles": {
+    "isAdmin": false,
+    "isEditor": true
+  }
+}
+*/
+
+/* JSON.stringify(user, null, 4)라면 아래와 같이 좀 더 들여써집니다.
+{
+    "name": "John",
+    "age": 25,
+    "roles": {
+        "isAdmin": false,
+        "isEditor": true
+    }
+}
+*/
+```
+
+이처럼 매개변수 `space`는 로깅이나 가독성을 높이는 목적으로 사용됩니다.
+
+> **커스텀 "toJSON"**
+
+`toString`을 사용해 객체를 문자형으로 변환시키는 것처럼, 객체에 `toJSON`이라는 메서드가 구현되어 있으면 객체를 JSON으로 바꿀 수 있을 겁니다. `JSON.stringify`는 이런 경우를 감지하고 `toJSON`을 자동으로 호출해줍니다.
+
+예시:
+
+```jsx
+let room = {
+  number: 23
+};
+
+let meetup = {
+  title: "Conference",
+  date: new Date(Date.UTC(2017, 0, 1)),
+  room
+};
+
+alert( JSON.stringify(meetup) );
+/*
+  {
+    "title":"Conference",
+    "date":"2017-01-01T00:00:00.000Z",  // (1)
+    "room": {"number":23}               // (2)
+  }
+*/
+```
+
+Date 객체의 내장 메서드 `toJSON`이 호출되면서 `date`의 값이 문자열로 변환된 걸 확인할 수 있습니다(`(1)`).
+
+이번엔 `room`에 직접 커스텀 메서드 `toJSON`을 추가해 봅시다. 그리고 `(2)`로 표시한 줄이 어떻게 변경되는지 확인해 봅시다.
+
+```jsx
+let room = {
+  number: 23,
+  toJSON() {
+    return this.number;
+  }
+};
+
+let meetup = {
+  title: "Conference",
+  room
+};
+
+alert( JSON.stringify(room) ); // 23
+
+alert( JSON.stringify(meetup) );
+/*
+  {
+    "title":"Conference",
+    "room": 23
+  }
+*/
+```
+
+위와 같이 `toJSON`은 `JSON.stringify(room)`를 직접 호출할 때도 사용할 수 있고, `room`과 같은 중첩객체에도 구현하여 사용할 수 있습니다.
+
+> **JSON.parse**
+
+[JSON.parse](https://developer.mozilla.org/ko/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse)를 사용하면 JSON으로 인코딩된 객체를 다시 객체로 디코딩 할 수 있습니다.
+
+문법:
+
+```jsx
+let value = JSON.parse(str, [reviver]);
+```
+
+- **str**
+
+    JSON 형식의 문자열
+
+- **reviver**
+
+    모든 `(key, value)` 쌍을 대상으로 호출되는 function(key,value) 형태의 함수로 값을 변경시킬 수 있습니다.
+
+예시:
+
+```jsx
+// 문자열로 변환된 배열
+let numbers = "[0, 1, 2, 3]";
+
+numbers = JSON.parse(numbers);
+
+alert( numbers[1] ); // 1
+```
+
+`JSON.parse`는 아래와 같이 중첩 객체에도 사용할 수 있습니다.
+
+```jsx
+let userData = '{ "name": "John", "age": 35, "isAdmin": false, "friends": [0,1,2,3] }';
+
+let user = JSON.parse(userData);
+
+alert( user.friends[1] ); // 1
+```
+
+중첩 객체나 중쳡 배열이 있다면 JSON도 복잡해지기 마련인데, 그렇더라도 결국엔 JSON 포맷 지켜야 합니다.
+
+아래에서 디버깅 등의 목적으로 직접 JSON을 만들 때 흔히 저지르는 실수 몇 개를 간추려보았습니다. 참고하시어 이와 같은 실수를 저지르지 않으시길 바랍니다.
+
+```jsx
+let json = `{
+  name: "John",                     // 실수 1: 프로퍼티 이름을 큰따옴표로 감싸지 않았습니다.
+  "surname": 'Smith',               // 실수 2: 프로퍼티 값은 큰따옴표로 감싸야 하는데, 작은따옴표로 감쌌습니다.
+  'isAdmin': false                  // 실수 3: 프로퍼티 키는 큰따옴표로 감싸야 하는데, 작은따옴표로 감쌌습니다.
+  "birthday": new Date(2000, 2, 3), // 실수 4: "new"를 사용할 수 없습니다. 순수한 값(bare value)만 사용할 수 있습니다.
+  "friends": [0,1,2,3]              // 이 프로퍼티는 괜찮습니다.
+}`;
+```
+
+JSON은 주석을 지원하지 않는다는 점도 기억해 놓으시기 바랍니다. 주석을 추가하면 유효하지 않은 형식이 됩니다.
+
+키를 큰따옴표로 감싸지 않아도 되고 주석도 지원해주는 [JSON5](http://json5.org/)라는 포맷도 있는데, 이 포맷은 자바스크립트 명세서에서 정의하지 않은 독자적인 라이브러리입니다.
+
+JSON 포맷이 까다로운 규칙을 가지게 된 이유는 개발자의 귀차니즘 때문이 아니고, 쉽고 빠르며 신뢰할 수 있을 만한 파싱 알고리즘을 구현하기 위해서입니다.
+
+> **reviver 사용하기**
+
+서버로부터 문자열로 변환된 `meetup` 객체를 전송받았다고 가정해봅시다.
+
+전송받은 문자열은 아마 아래와 같이생겼을겁니다.
+
+```jsx
+// title: (meetup 제목), date: (meetup 일시)
+let str = '{"title":"Conference","date":"2017-11-30T12:00:00.000Z"}';
+```
+
+이제 이 문자열을 *역 직렬화(deserialize)* 해서 자바스크립트 객체를 만들어봅시다.
+
+`JSON.parse`를 호출해보죠.
+
+```jsx
+let str = '{"title":"Conference","date":"2017-11-30T12:00:00.000Z"}';
+
+let meetup = JSON.parse(str);
+
+alert( meetup.date.getDate() ); // 에러!
+```
+
+엇! 에러가 발생하네요!
+
+`meetup.date`의 값은 `Date` 객체가 아니고 문자열이기 때문에 발생한 에러입니다. 그렇다면 문자열을 `Date`로 전환해줘야 한다는 걸 어떻게 `JSON.parse`에게 알릴 수 있을까요?
+
+이럴 때 `JSON.parse`의 두 번째 인수 `reviver`를 사용하면 됩니다. 모든 값은 “그대로”, 하지만 `date`만큼은 `Date` 객체를 반환하도록 함수를 구현해 봅시다.
+
+```jsx
+let str = '{"title":"Conference","date":"2017-11-30T12:00:00.000Z"}';
+
+let meetup = JSON.parse(str, function(key, value) {
+  if (key == 'date') return new Date(value);
+  return value;
+});
+
+alert( meetup.date.getDate() ); // 이제 제대로 동작하네요!
+```
+
+참고로 이 방식은 중첩 객체에도 적용할 수 있습니다.
+
+```jsx
+let schedule = `{
+  "meetups": [
+    {"title":"Conference","date":"2017-11-30T12:00:00.000Z"},
+    {"title":"Birthday","date":"2017-04-18T12:00:00.000Z"}
+  ]
+}`;
+
+schedule = JSON.parse(schedule, function(key, value) {
+  if (key == 'date') return new Date(value);
+  return value;
+});
+
+alert( schedule.meetups[1].date.getDate() ); // 잘 동작합니다!
+```
